@@ -6,7 +6,7 @@ import HealthWorkspace from "../features/health/HealthWorkspace";
 import { createDefaultData } from "../store/defaultData";
 import { clearPendingAttachments, finishAttachmentUpload, queueAttachmentDeletion, readLocalData, saveAttachment, writeLocalData } from "../store/db";
 import { isOssConfigured } from "../sync/client";
-import { bootstrapSync, synchronize, syncAttachment, type ConflictChoice } from "../sync/sync";
+import { bootstrapSync, RemoteVersionConflictError, synchronize, syncAttachment, type ConflictChoice } from "../sync/sync";
 import type { AppData, SyncStatus, WorkspaceId } from "../types/models";
 
 const workspaces: Array<{ id: WorkspaceId; label: string; icon: typeof CircleDollarSign }> = [
@@ -106,6 +106,21 @@ export default function App() {
         setConflict(undefined);
       }
     } catch (error) {
+      if (error instanceof RemoteVersionConflictError) {
+        try {
+          const latest = dataRef.current;
+          if (latest?.dirty) {
+            const result = await synchronize(latest);
+            if (result.kind === "conflict") {
+              setConflict({ local: result.local, remote: result.remote, remoteVersion: result.remoteVersion });
+              setStatus({ phase: "conflict", message: "远端数据刚被另一页面或设备更新，请选择保留哪一份", remoteVersion: result.remoteVersion });
+              return;
+            }
+          }
+        } catch {
+          // Fall through to the original error while preserving the local IndexedDB copy.
+        }
+      }
       setStatus({ phase: "error", message: error instanceof Error ? error.message : "同步失败，本机数据仍已保存" });
     } finally {
       setBusy(false);

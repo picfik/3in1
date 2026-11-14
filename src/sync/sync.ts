@@ -16,6 +16,8 @@ const MANIFEST_KEY = `${ROOT}/manifest.json`;
 const SHARDS: WorkspaceId[] = ["cashflow", "diary", "health"];
 
 export type ConflictChoice = "use-remote" | "overwrite-remote";
+export class RemoteVersionConflictError extends Error {}
+
 export type SyncResult =
   | { kind: "ready"; data: AppData; remoteVersion: number }
   | { kind: "conflict"; local: AppData; remote: AppData; remoteVersion: number };
@@ -138,7 +140,7 @@ async function pushData(data: AppData, previousManifest?: RemoteManifest): Promi
 
   const latest = await readManifest();
   if ((latest?.version ?? 0) !== previousVersion) {
-    throw new Error("上传期间远端版本已变化，本机数据仍保留，请重新同步并处理冲突");
+    throw new RemoteVersionConflictError("上传期间远端版本已变化");
   }
   const manifest: RemoteManifest = {
     schemaVersion: 1,
@@ -149,8 +151,13 @@ async function pushData(data: AppData, previousManifest?: RemoteManifest): Promi
   };
   await putObject(MANIFEST_KEY, JSON.stringify(manifest), "application/json");
   const confirmed = await readManifest();
-  if (confirmed?.version !== version || confirmed.deviceId !== data.deviceId) {
-    throw new Error("远端 manifest 被另一设备覆盖，本机数据仍保留，请重新同步");
+  const manifestMatches = SHARDS.every((workspace) => {
+    const expected = shards[workspace];
+    const actual = confirmed?.shards[workspace];
+    return expected?.key === actual?.key && expected?.sha256 === actual?.sha256;
+  });
+  if (confirmed?.version !== version || confirmed.deviceId !== data.deviceId || !manifestMatches) {
+    throw new RemoteVersionConflictError("远端 manifest 在写入后被并发更新");
   }
   await flushAttachmentDeletions(data);
   data.manifestVersion = version;
