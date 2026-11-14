@@ -36,7 +36,7 @@ export function createHealthRecord(date: string): HealthRecord {
   };
 }
 
-export function createDefaultData(deviceId = crypto.randomUUID()): AppData {
+export function createDefaultData(deviceId: string = crypto.randomUUID()): AppData {
   return {
     schemaVersion: 1,
     cashflow: {

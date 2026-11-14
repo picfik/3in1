@@ -13,14 +13,6 @@ const groups: Array<{ key: ItemGroup; label: string; kind: ItemKind }> = [
   { key: "liabilities", label: "负债", kind: "liability" },
   { key: "dreams", label: "梦想", kind: "dream" }
 ];
-const ideas = [
-  "今天最让我开心的一件小事是……",
-  "如果用一句话总结今天，我会说……",
-  "今天我学到的一件事是……",
-  "此刻我最感激的人或事是……",
-  "最近反复出现在我脑海里的念头是……"
-];
-
 function amount(value: number): string {
   return new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 2 }).format(value);
 }
